@@ -1,0 +1,10 @@
+{
+  "users": {
+    "ali": {
+      "password": "1234"
+    },
+    "veli": {
+      "password": "abcd"
+    }
+  }
+}

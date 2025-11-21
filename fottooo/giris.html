@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dosya & Foto Deposu — Sol Menü</title>
+<style>
+  :root{--accent:#2574A9;--danger:#e74c3c;--bg:#f4f6f8}
+  body{margin:0;font-family:Inter,Segoe UI,Roboto,Arial;background:var(--bg);color:#1f2937}
+  .app{max-width:1100px;margin:24px auto;display:flex;gap:18px}
+  .sidebar{width:220px;background:#fff;border-radius:12px;padding:14px;box-shadow:0 6px 22px rgba(16,24,40,.06);height:640px;display:flex;flex-direction:column;gap:12px}
+  .brand{font-weight:700;font-size:18px;color:var(--accent);margin-bottom:6px}
+  .menu-btn{display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px;border:1px solid transparent;cursor:pointer;background:transparent;font-weight:600}
+  .menu-btn:hover{background:#f1f7fb}
+  .menu-btn.active{background:linear-gradient(90deg,#eef7fb,#ffffff);border-color:#e6f0f6}
+  .login-card{background:#fff;border-radius:12px;padding:12px;box-shadow:0 6px 22px rgba(16,24,40,.04);width:320px;margin:auto}
+  .content{flex:1;background:#fff;border-radius:12px;padding:18px;box-shadow:0 6px 22px rgba(16,24,40,.06);min-height:640px;display:flex;flex-direction:column}
+  .row{display:flex;gap:12px;align-items:center}
+  input,button,select{font-size:14px}
+  input[type="file"]{width:100%}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .search{width:320px;padding:8px;border-radius:8px;border:1px solid #e2e8f0}
+  .section{display:none;flex-direction:column;gap:12px}
+  .section.active{display:flex}
+  .file-grid{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px}
+  .file-card{width:160px;background:#fbfdff;border-radius:10px;padding:10px;border:1px solid #eef3f7;display:flex;flex-direction:column;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(30,40,50,.03)}
+  .file-card img{width:100%;height:100px;object-fit:cover;border-radius:8px;cursor:pointer}
+  .file-meta{font-size:13px;text-align:center;word-break:break-word}
+  .file-actions{display:flex;gap:6px;width:100%}
+  .file-actions button{flex:1;padding:6px;border-radius:8px;border:0;cursor:pointer}
+  .btn{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+  .btn.secondary{background:#2d3748}
+  .btn.danger{background:var(--danger)}
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:999}
+  #overlay img{max-width:95%;max-height:95%}
+  .muted{font-size:13px;color:#6b7280}
+  .small{font-size:12px;color:#6b7280}
+  @media (max-width:900px){
+    .app{flex-direction:column;padding:12px}
+    .sidebar{width:100%;height:auto;flex-direction:row;overflow:auto}
+    .login-card{width:100%}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SOL MENÜ -->
+  <div class="sidebar">
+    <div class="brand">Depo — Kullanıcı Bazlı</div>
+
+    <div id="menuPhotos" class="menu-btn active" data-section="photos">
+      📷 &nbsp; Fotoğraflar
+    </div>
+    <div id="menuFiles" class="menu-btn" data-section="files">
+      📁 &nbsp; Dosyalar
+    </div>
+
+    <hr style="border:none;border-top:1px solid #f0f4f7;margin:8px 0">
+
+    <div id="loginBox">
+      <input id="username" placeholder="Kullanıcı adı" style="width:100%;padding:8px;border-radius:8px;border:1px solid #e2e8f0"/>
+      <input id="password" placeholder="Şifre" type="password" style="width:100%;padding:8px;border-radius:8px;border:1px solid #e2e8f0;margin-top:8px"/>
+      <button id="loginBtn" class="btn" style="margin-top:8px">Giriş Yap</button>
+      <p id="loginError" class="small" style="color:var(--danger)"></p>
+    </div>
+
+    <div id="userBox" style="display:none">
+      <div style="font-weight:700" id="welcomeUser"></div>
+      <div class="muted small">Kullanıcıya özel depolar</div>
+      <button id="logoutBtn" class="btn secondary" style="margin-top:8px">Çıkış Yap</button>
+    </div>
+
+    <div style="margin-top:auto" class="small muted">Not: Büyük dosyalar için Firebase Storage önerilir.</div>
+  </div>
+
+  <!-- SAĞ İÇERİK -->
+  <div class="content">
+    <div class="topbar">
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="searchInput" class="search" placeholder="Ara (aktif sekme içinde)..." />
+        <div class="muted small" id="activeLabel">Fotoğraflar</div>
+      </div>
+      <div class="muted small">Limit: 1 GB | Fotoğraflar → photos/{kullanıcı} | Dosyalar → files/{kullanıcı}</div>
+    </div>
+
+    <!-- FOTOĞRAFLAR -->
+    <div id="photos" class="section active">
+      <div style="display:flex;gap:12px;align-items:center">
+        <input id="photoInput" type="file" accept="image/*" />
+        <button id="uploadPhotoBtn" class="btn">Fotoğraf Yükle</button>
+      </div>
+      <div id="photosMsg" class="small muted"></div>
+      <div id="photoGrid" class="file-grid"></div>
+    </div>
+
+    <!-- DOSYALAR -->
+    <div id="files" class="section">
+      <div style="display:flex;gap:12px;align-items:center">
+        <input id="fileInput" type="file" />
+        <button id="uploadFileBtn" class="btn">Dosya Yükle</button>
+      </div>
+      <div id="filesMsg" class="small muted"></div>
+      <div id="fileGrid" class="file-grid"></div>
+    </div>
+  </div>
+</div>
+
+<div id="overlay"><img id="overlayImg" src="" alt="preview"></div>
+
+<script type="module">
+/* Firebase (Realtime DB) v9 modular import */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+import { getDatabase, ref, push, set, onValue, remove, get, child } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+
+/* ---------- CONFIG ---------- */
+/* Eğer kendi projen varsa burada değiştir */
+const firebaseConfig = {
+  apiKey: "AIzaSyB9mANScuKabhYFzOG1Tvqqitx4GABCWvQ",
+  authDomain: "fotosave-686cc.firebaseapp.com",
+  databaseURL: "https://fotosave-686cc-default-rtdb.firebaseio.com",
+  projectId: "fotosave-686cc",
+  storageBucket: "fotosave-686cc.appspot.com",
+  messagingSenderId: "866262062446",
+  appId: "1:866262062446:web:763118c0533e75c7b25d7f"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+/* ---------- DOM ---------- */
+const menuPhotos = document.getElementById('menuPhotos');
+const menuFiles = document.getElementById('menuFiles');
+const photosSection = document.getElementById('photos');
+const filesSection = document.getElementById('files');
+const activeLabel = document.getElementById('activeLabel');
+const searchInput = document.getElementById('searchInput');
+
+const usernameInput = document.getElementById('username');
+const passwordInput = document.getElementById('password');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
+const loginBox = document.getElementById('loginBox');
+const userBox = document.getElementById('userBox');
+const welcomeUser = document.getElementById('welcomeUser');
+const logoutBtn = document.getElementById('logoutBtn');
+
+const photoInput = document.getElementById('photoInput');
+const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
+const photoGrid = document.getElementById('photoGrid');
+const photosMsg = document.getElementById('photosMsg');
+
+const fileInput = document.getElementById('fileInput');
+const uploadFileBtn = document.getElementById('uploadFileBtn');
+const fileGrid = document.getElementById('fileGrid');
+const filesMsg = document.getElementById('filesMsg');
+
+const overlay = document.getElementById('overlay');
+const overlayImg = document.getElementById('overlayImg');
+
+let currentUser = null;
+let photosMap = {};
+let filesMap = {};
+const MAX_SIZE = 1024 * 1024 * 1024; // 1 GB
+
+/* ---------- Menüler / Sekmeler ---------- */
+function setActive(section){
+  menuPhotos.classList.remove('active');
+  menuFiles.classList.remove('active');
+  photosSection.classList.remove('active');
+  filesSection.classList.remove('active');
+
+  if(section === 'photos'){
+    menuPhotos.classList.add('active');
+    photosSection.classList.add('active');
+    activeLabel.textContent = 'Fotoğraflar';
+  } else {
+    menuFiles.classList.add('active');
+    filesSection.classList.add('active');
+    activeLabel.textContent = 'Dosyalar';
+  }
+  // arama temizle
+  searchInput.value = '';
+  filterList('');
+}
+menuPhotos.addEventListener('click', () => setActive('photos'));
+menuFiles.addEventListener('click', () => setActive('files'));
+
+/* ---------- Login ---------- */
+function checkLogin(){
+  const u = localStorage.getItem('loggedInUser');
+  if(u){
+    currentUser = u;
+    loginBox.style.display = 'none';
+    userBox.style.display = 'block';
+    welcomeUser.textContent = currentUser;
+    bindRealtime();
+  }
+}
+checkLogin();
+
+loginBtn.addEventListener('click', async () => {
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value;
+  if(!username || !password){ loginError.textContent = 'Tüm alanları doldur.'; return; }
+  try {
+    const snap = await get(child(ref(db), `users/${username}`));
+    if(snap.exists() && snap.val().password === password){
+      localStorage.setItem('loggedInUser', username);
+      currentUser = username;
+      loginBox.style.display = 'none';
+      userBox.style.display = 'block';
+      welcomeUser.textContent = currentUser;
+      loginError.textContent = '';
+      bindRealtime();
+    } else {
+      loginError.textContent = 'Kullanıcı adı veya şifre hatalı.';
+    }
+  } catch(e){
+    console.error(e);
+    loginError.textContent = 'Giriş hatası.';
+  }
+});
+logoutBtn.addEventListener('click', () => {
+  localStorage.removeItem('loggedInUser');
+  location.reload();
+});
+
+/* ---------- Helpers ---------- */
+function fileToBase64(file){
+  return new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => res(reader.result);
+    reader.onerror = e => rej(e);
+    reader.readAsDataURL(file);
+  });
+}
+function formatBytes(bytes){
+  if(!bytes) return '0 B';
+  const sizes = ['B','KB','MB','GB','TB'];
+  const i = Math.floor(Math.log(bytes)/Math.log(1024));
+  return `${(bytes/Math.pow(1024,i)).toFixed(2)} ${sizes[i]}`;
+}
+
+/* ---------- Upload işlemleri ---------- */
+uploadPhotoBtn.addEventListener('click', async () => {
+  if(!currentUser) return alert('Önce giriş yap.');
+  const file = photoInput.files[0];
+  if(!file) return alert('Fotoğraf seç.');
+  if(file.size > MAX_SIZE) return alert('Dosya 1GB\'dan büyük, yüklenemiyor.');
+  photosMsg.textContent = 'Yükleniyor...';
+  try {
+    const base64 = await fileToBase64(file);
+    const node = push(ref(db, `photos/${currentUser}`));
+    await set(node, {
+      name: file.name,
+      base64,
+      type: file.type || 'image/*',
+      size: file.size,
+      createdAt: Date.now()
+    });
+    photoInput.value = '';
+    photosMsg.textContent = 'Yüklendi.';
+  } catch(e){
+    console.error(e);
+    photosMsg.textContent = 'Yükleme başarısız.';
+  }
+});
+
+uploadFileBtn.addEventListener('click', async () => {
+  if(!currentUser) return alert('Önce giriş yap.');
+  const file = fileInput.files[0];
+  if(!file) return alert('Dosya seç.');
+  if(file.size > MAX_SIZE) return alert('Dosya 1GB\'dan büyük, yüklenemiyor.');
+  filesMsg.textContent = 'Yükleniyor...';
+  try {
+    const base64 = await fileToBase64(file);
+    const node = push(ref(db, `files/${currentUser}`));
+    await set(node, {
+      name: file.name,
+      base64,
+      type: file.type || 'application/octet-stream',
+      size: file.size,
+      createdAt: Date.now()
+    });
+    fileInput.value = '';
+    filesMsg.textContent = 'Yüklendi.';
+  } catch(e){
+    console.error(e);
+    filesMsg.textContent = 'Yükleme başarısız.';
+  }
+});
+
+/* ---------- Realtime dinleme / listeleme ---------- */
+function bindRealtime(){
+  const photosRef = ref(db, `photos/${currentUser}`);
+  const filesRef = ref(db, `files/${currentUser}`);
+
+  onValue(photosRef, snap => {
+    photosMap = snap.val() || {};
+    renderPhotos(photosMap);
+  });
+  onValue(filesRef, snap => {
+    filesMap = snap.val() || {};
+    renderFiles(filesMap);
+  });
+}
+
+/* Render fonksiyonları */
+function renderPhotos(map){
+  photoGrid.innerHTML = '';
+  const entries = Object.entries(map || {});
+  if(entries.length === 0){
+    photoGrid.innerHTML = '<div class="muted small">Henüz fotoğraf yok.</div>';
+    return;
+  }
+  entries.forEach(([key,item]) => {
+    const card = document.createElement('div'); card.className='file-card';
+    const img = document.createElement('img'); img.src = item.base64; img.alt = item.name;
+    img.addEventListener('click', ()=> { overlayImg.src = item.base64; overlay.style.display = 'flex'; });
+    const meta = document.createElement('div'); meta.className='file-meta'; meta.innerText = item.name;
+    const small = document.createElement('div'); small.className='small muted'; small.innerText = formatBytes(item.size);
+    const actions = document.createElement('div'); actions.className='file-actions';
+    const dl = document.createElement('button'); dl.innerText='İndir'; dl.className='btn'; dl.addEventListener('click', ()=>download(item));
+    const del = document.createElement('button'); del.innerText='Sil'; del.className='btn danger'; del.addEventListener('click', ()=>deleteItem('photos', key));
+    actions.appendChild(dl); actions.appendChild(del);
+    card.appendChild(img); card.appendChild(meta); card.appendChild(small); card.appendChild(actions);
+    photoGrid.appendChild(card);
+  });
+}
+
+function renderFiles(map){
+  fileGrid.innerHTML = '';
+  const entries = Object.entries(map || {});
+  if(entries.length === 0){
+    fileGrid.innerHTML = '<div class="muted small">Henüz dosya yok.</div>';
+    return;
+  }
+  entries.forEach(([key,item]) => {
+    const card = document.createElement('div'); card.className='file-card';
+    const icon = document.createElement('div'); icon.style.fontSize='40px'; icon.innerText='📄';
+    const meta = document.createElement('div'); meta.className='file-meta'; meta.innerText = item.name;
+    const small = document.createElement('div'); small.className='small muted'; small.innerText = `${item.type || ''} • ${formatBytes(item.size)}`;
+    const actions = document.createElement('div'); actions.className='file-actions';
+    const dl = document.createElement('button'); dl.innerText='İndir'; dl.className='btn'; dl.addEventListener('click', ()=>download(item));
+    const del = document.createElement('button'); del.innerText='Sil'; del.className='btn danger'; del.addEventListener('click', ()=>deleteItem('files', key));
+    actions.appendChild(dl); actions.appendChild(del);
+    card.appendChild(icon); card.appendChild(meta); card.appendChild(small); card.appendChild(actions);
+    fileGrid.appendChild(card);
+  });
+}
+
+/* İndirme ve silme */
+function download(item){
+  if(!item || !item.base64) return alert('İndirme verisi yok.');
+  const a = document.createElement('a');
+  a.href = item.base64;
+  a.download = item.name || 'download';
+  a.click();
+}
+
+async function deleteItem(type, key){
+  if(!confirm('Silinsin mi?')) return;
+  try{
+    await remove(ref(db, `${type}/${currentUser}/${key}`));
+  } catch(e){
+    console.error(e);
+    alert('Silme hatası.');
+  }
+}
+
+/* Arama (aktif sekme içinde) */
+searchInput.addEventListener('input', () => {
+  filterList(searchInput.value.trim().toLowerCase());
+});
+function filterList(q){
+  if(!q){
+    // yeniden render et
+    renderPhotos(photosMap);
+    renderFiles(filesMap);
+    return;
+  }
+  if(menuPhotos.classList.contains('active')){
+    // fotoğraflar
+    const filtered = Object.fromEntries(Object.entries(photosMap || {}).filter(([k,i]) => (i.name||'').toLowerCase().includes(q)));
+    renderPhotos(filtered);
+  } else {
+    const filtered = Object.fromEntries(Object.entries(filesMap || {}).filter(([k,i]) => (i.name||'').toLowerCase().includes(q)));
+    renderFiles(filtered);
+  }
+}
+
+/* Overlay */
+overlay.addEventListener('click', ()=> overlay.style.display='none');
+
+/* Güvenlik: sayfa yüklenince currentUser varsa bağla */
+window.addEventListener('load', ()=> {
+  const u = localStorage.getItem('loggedInUser');
+  if(u){ currentUser = u; loginBox.style.display='none'; userBox.style.display='block'; welcomeUser.textContent = currentUser; bindRealtime(); }
+});
+
+/* Not: Eğer eski veriler farklı path'te (ör: 'images' gibi) saklıysa, bindRealtime() içine ek path'ler de bağlanabilir.
+   Örnek: onValue(ref(db, `images/${currentUser}`), ...) 
+   İstersen ben senin veritabanı yapısına göre pathleri uyarlayayım. */
+</script>
+</body>
+</html>
